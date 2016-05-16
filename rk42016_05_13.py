@@ -28,6 +28,8 @@
     Tri.Shrive@gmail.com
 
 """
+
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -103,29 +105,34 @@ def graph3d(vx, vy, vz, vt):
 	fig.canvas.set_window_title('')
 	ax = fig.add_subplot(111, projection='3d')
 	fig.suptitle('Roessler System in 3D', fontsize=12, fontweight='bold')
-	ax.set_ylabel('Dx')
-	ax.set_xlabel('Dy')
+	ax.set_xlabel('Dx')
+	ax.set_ylabel('Dy')
 	ax.set_zlabel('Dz')
-	plt.plot( vx, vy, vz, 'r', alpha = 0.5)
+	plt.plot( vx, vy, vz, 'r', alpha = 0.75)
 	plt.show()
 	return
 
 def extrema_worker(a):
-	"""worker function for calculating the tragectories of the henon map"""
+	"""worker function for calculating the local extrema"""
 	vx, vy, vz, vt = rk4(Dx, Dy, Dz, a)
 
-	v = np.array(vz)
-#	print(v)
+	v = np.array(vy)
+
 	Lmax = argrelextrema(v, np.greater)
 	Lmin = argrelextrema(v, np.less)
+
+	Lmax = Lmax[:]
+	Lmin = Lmin[:]
+
 	Lext = []
 	Lext = np.append(v[Lmin], v[Lmax])
-#	print(Lext)
-	Lext = Lext.flatten()
+
+	Lext = Lext.flatten('C')
 	Lext = Lext.tolist()
 	return Lext[-10:] 
 
 def extrema_pool(a0, a1, a_n):
+	"""pool function for calculating and plotting the local extrema"""
 	print("\nRunning...\n")
 	with mp.Pool(processes=mp.cpu_count()) as pool:
 		T = pool.map(extrema_worker, np.arange(a0, a1, a_n))
@@ -137,7 +144,7 @@ def extrema_pool(a0, a1, a_n):
 	ax = fig.add_subplot(111)
 #	ax.set_title('')
 	ax.set_xlabel('a')
-	ax.set_ylabel('Local Extrema of Dz')
+	ax.set_ylabel('Local Extrema of Dy')
 	plt.plot(np.arange(a0, a1, a_n), T, 'r.', markersize = 0.65)
 	plt.xlim([a0,a1])
 	plt.show()
@@ -145,13 +152,14 @@ def extrema_pool(a0, a1, a_n):
 	return
 
 def brute_worker(a):
-	"""worker function for calculating the tragectories of the henon map"""
+	"""worker function for calculating the tragectories"""
 	vx, vy, vz, vt = rk4(Dx, Dy, Dz, a)
-	return vy[-20:]
+	return vx[-20:]
 
 def brute_pool(a0, a1, a_n):
+	"""pool function for calculating and plotting the tragectories"""
 	print("\nRunning...\n")
-	with mp.Pool(processes=mp.cpu_count()-1) as pool:
+	with mp.Pool(processes=mp.cpu_count()) as pool:
 		T = pool.map(brute_worker, np.arange(a0, a1, a_n))
 	print(T)
 	fig = plt.figure()
@@ -160,7 +168,7 @@ def brute_pool(a0, a1, a_n):
 	ax = fig.add_subplot(111)
 #	ax.set_title('')
 	ax.set_xlabel('a')
-	ax.set_ylabel('Transients of Dy')
+	ax.set_ylabel('Transients of Dx')
 	plt.plot(np.arange(a0, a1, a_n), T, 'r.', markersize = 0.65)
 	plt.xlim([a0,a1])
 
@@ -172,27 +180,40 @@ def return_values():
 	x0, y0, z0 = 1, 0, 0
 	b, c = 2, 4
 
-	t0 , Tt = 0, 100
+	t0 , Tt = 0, 55
 	n =  100 * Tt # RK4 step size
 
 	return x0, y0, z0, b, c, t0, Tt, n
 
 if __name__ == '__main__':
+
+	from argparse import RawTextHelpFormatter
+	parser = argparse.ArgumentParser(description='Runge - Kutta 4th order method of the Roessler System.\n\nDx = - y - z\nDy = x + a * y\nDz = b + z * (x - c)', epilog='EXAMPLES \n  %(prog)s -ABCD', formatter_class=RawTextHelpFormatter)
+
+	parser.add_argument("a", nargs='?', const=0.4, default=0.4, type=float, help="in Dy = x + a * y")
+
+	parser.add_argument("-A", "--overtime", help="Plot the System over time.", action='store_true')
+	parser.add_argument("-B", "--graph3D", help="Plot a 3D graph of the System.", action='store_true')
+	parser.add_argument("-C", "--brute", help="Plot a brute force bifurcation diagram.", action='store_true')
+	parser.add_argument("-D", "--extrema", help="Plot a bifurcation diagram using local extrema.", action='store_true')
+
+	args = parser.parse_args()
+
 	x0, y0, z0, b, c, t0, Tt, n = return_values()
-	a = 0.3606
-	a0, a1, a_n = 0.25, 0.4, 0.0001 # a_n - Bifurcation step size
+	a = args.a
+	a0, a1, a_n = 0.28, 0.45, 0.0001 # a_n - Bifurcation step size
 
 	vx, vy, vz, vt = rk4(Dx, Dy, Dz, a)
 #	for x, y, z, t in list(zip(vx, vy, vz, vt))[::1]:
 #		print("%1.1f %1.1f %1.1f %1.1f" % (x, y, z, t))
 
-
-	overtime(vx, vy, vz, vt, t0, Tt)
-
-	graph3d(vx, vy, vz, vt)
-
-#	brute_pool(a0, a1, a_n)
-
-	extrema_pool(a0, a1, a_n)
+	if args.overtime:
+		overtime(vx, vy, vz, vt, t0, Tt)
+	if args.graph3D:
+		graph3d(vx, vy, vz, vt)
+	if args.brute:
+		brute_pool(a0, a1, a_n)
+	if args.extrema:
+		extrema_pool(a0, a1, a_n)
 
 
