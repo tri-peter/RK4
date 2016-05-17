@@ -1,4 +1,4 @@
-maps20160430.py
+rk4_2016_05_13.py
 
 Originator: Tri-Peter Shrive
 Contact: tri.shrive@gmail.com
@@ -25,4 +25,4 @@ optional arguments:
   -D, --extrema   Plot a bifurcation diagram using local extrema.
 
 EXAMPLES 
-  rk42016_05_13.py -ABCD
+  rk42016_05_13.py -ABCD 0.36
